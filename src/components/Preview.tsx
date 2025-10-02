@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Eye } from 'lucide-react';
 import { ConsoleLog } from './Console';
 
@@ -10,16 +10,7 @@ interface PreviewProps {
 }
 
 export const Preview = ({ html, css, javascript, onConsoleLog }: PreviewProps) => {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    const document = iframe.contentDocument;
-    if (!document) return;
-
-    // Inject console capturing code
+  const content = useMemo(() => {
     const consoleScript = `
       <script>
         (function() {
@@ -89,7 +80,7 @@ export const Preview = ({ html, css, javascript, onConsoleLog }: PreviewProps) =
       </script>
     `;
 
-    const content = `
+    return `
       <!DOCTYPE html>
       <html lang="en">
         <head>
@@ -104,16 +95,12 @@ export const Preview = ({ html, css, javascript, onConsoleLog }: PreviewProps) =
             try {
               ${javascript}
             } catch (error) {
-              console.error(error.message);
+              console.error(error && error.message ? error.message : String(error));
             }
           </script>
         </body>
       </html>
     `;
-
-    document.open();
-    document.write(content);
-    document.close();
   }, [html, css, javascript]);
 
   useEffect(() => {
@@ -137,10 +124,10 @@ export const Preview = ({ html, css, javascript, onConsoleLog }: PreviewProps) =
         <span className="text-sm font-medium text-foreground">Live Preview</span>
       </div>
       <iframe
-        ref={iframeRef}
         title="preview"
         className="flex-1 w-full bg-preview-bg"
         sandbox="allow-scripts"
+        srcDoc={content}
       />
     </div>
   );
