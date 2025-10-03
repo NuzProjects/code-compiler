@@ -7,7 +7,7 @@ import { python } from '@codemirror/lang-python';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 
 interface CodeEditorProps {
-  language: 'html' | 'css' | 'javascript' | 'python';
+  language: 'html' | 'css' | 'javascript' | 'python' | 'endpoint';
   value: string;
   onChange: (value: string) => void;
 }
@@ -21,6 +21,7 @@ export const CodeEditor = ({ language, value, onChange }: CodeEditorProps) => {
       css: [css()],
       javascript: [javascript()],
       python: [python()],
+      endpoint: [javascript()], // endpoint files use JavaScript syntax
     };
     setExtensions(langExtensions[language]);
   }, [language]);

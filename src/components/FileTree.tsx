@@ -16,7 +16,7 @@ import {
 export interface FileItem {
   id: string;
   name: string;
-  type: 'html' | 'css' | 'javascript' | 'python';
+  type: 'html' | 'css' | 'javascript' | 'python' | 'endpoint';
   content: string;
 }
 
@@ -47,6 +47,7 @@ export const FileTree = ({
       css: 'text-blue-500',
       javascript: 'text-yellow-500',
       python: 'text-green-500',
+      endpoint: 'text-purple-500',
     };
     return <FileCode className={`w-4 h-4 ${colors[type]}`} />;
   };
@@ -60,13 +61,19 @@ export const FileTree = ({
     if (editingName.trim()) {
       const file = files.find((f) => f.id === fileId);
       if (file) {
-        const extensions = { html: '.html', css: '.css', javascript: '.js', python: '.py' };
+        const extensions = { 
+          html: '.html', 
+          css: '.css', 
+          javascript: '.js', 
+          python: '.py',
+          endpoint: '.endpoint'
+        };
         const requiredExt = extensions[file.type];
         let newName = editingName.trim();
         
         // Ensure the file keeps its extension
         if (!newName.endsWith(requiredExt)) {
-          newName = newName.replace(/\.(html|css|js|py)$/i, '') + requiredExt;
+          newName = newName.replace(/\.(html|css|js|py|endpoint)$/i, '') + requiredExt;
         }
         
         onFileRename(fileId, newName);
@@ -91,11 +98,11 @@ export const FileTree = ({
       </div>
 
       <div className="flex-1 overflow-auto p-2 space-y-4">
-        {(['html', 'css', 'javascript', 'python'] as const).map((type) => (
+        {(['html', 'css', 'javascript', 'python', 'endpoint'] as const).map((type) => (
           <div key={type} className="space-y-1">
             <div className="flex items-center justify-between px-2 py-1">
               <span className="text-xs font-medium text-muted-foreground uppercase">
-                {type === 'javascript' ? 'JS' : type === 'python' ? 'PY' : type}
+                {type === 'javascript' ? 'JS' : type === 'python' ? 'PY' : type === 'endpoint' ? 'API' : type}
               </span>
               <Button
                 variant="ghost"

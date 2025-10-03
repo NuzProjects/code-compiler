@@ -1,14 +1,18 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { Code2, Download, FileCode, Upload, Key } from 'lucide-react';
+import { Code2, Download, FileCode, Upload, Key, LogOut, User } from 'lucide-react';
 import { CodeEditor } from '@/components/CodeEditor';
 import { Console, ConsoleLog } from '@/components/Console';
 import { Preview } from '@/components/Preview';
 import { FileTree, FileItem } from '@/components/FileTree';
 import { SecretsManager } from '@/components/SecretsManager';
+import { ProjectManager } from '@/components/ProjectManager';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { supabase } from '@/integrations/supabase/client';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 
 const defaultFiles: FileItem[] = [
@@ -123,12 +127,57 @@ btn.addEventListener('click', () => {
 
 console.log('JavaScript loaded successfully! ✅');`,
   },
+  {
+    id: 'py-1',
+    name: 'script.py',
+    type: 'python',
+    content: `# Python script example
+def greet(name):
+    return f"Hello, {name}!"
+
+# Print greeting
+print(greet("World"))`,
+  },
 ];
 
 const Index = () => {
+  const navigate = useNavigate();
+  const [user, setUser] = useState<SupabaseUser | null>(null);
   const [files, setFiles] = useLocalStorage<FileItem[]>('compiler-files', defaultFiles);
   const [activeFileId, setActiveFileId] = useLocalStorage<string>('compiler-active-file', 'html-1');
   const [consoleLogs, setConsoleLogs] = useState<ConsoleLog[]>([]);
+
+  useEffect(() => {
+    // Check auth state
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    toast.success('Signed out successfully');
+  };
+
+  const handleLoadProject = (projectFiles: FileItem[]) => {
+    setFiles(projectFiles);
+    if (projectFiles.length > 0) {
+      setActiveFileId(projectFiles[0].id);
+    }
+  };
+
+  const handleNewProject = () => {
+    setFiles(defaultFiles);
+    setActiveFileId('html-1');
+  };
 
   const activeFile = files.find((f) => f.id === activeFileId) || files[0];
 
@@ -143,7 +192,7 @@ const Index = () => {
 
   const handleFileAdd = useCallback(
     (type: FileItem['type']) => {
-      const extensions = { html: '.html', css: '.css', javascript: '.js', python: '.py' };
+      const extensions = { html: '.html', css: '.css', javascript: '.js', python: '.py', endpoint: '.endpoint' };
       const newFile: FileItem = {
         id: `${type}-${Date.now()}`,
         name: `new-file${extensions[type]}`,
@@ -318,20 +367,50 @@ ${jsFiles.map((f) => `// ${f.name}\n${f.content}`).join('\n\n')}
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Key className="w-4 h-4" />
-                Secrets
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Secrets Manager</DialogTitle>
-              </DialogHeader>
-              <SecretsManager />
-            </DialogContent>
-          </Dialog>
+          {user && (
+            <>
+              <ProjectManager
+                currentFiles={files}
+                onLoadProject={handleLoadProject}
+                onNewProject={handleNewProject}
+              />
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Key className="w-4 h-4" />
+                    Secrets
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Secrets Manager</DialogTitle>
+                  </DialogHeader>
+                  <SecretsManager />
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
+          {!user ? (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => navigate('/auth')}
+              className="gap-2"
+            >
+              <User className="w-4 h-4" />
+              Sign In
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSignOut}
+              className="gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </Button>
+          )}
           <input
             type="file"
             accept=".html,.css,.js,.py"
