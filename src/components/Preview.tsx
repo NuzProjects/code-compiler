@@ -1,16 +1,32 @@
-import { useEffect, useMemo } from 'react';
-import { Eye } from 'lucide-react';
-import { ConsoleLog } from './Console';
+import { useEffect, useMemo, useState } from 'react';
+import { Maximize2, Minimize2 } from 'lucide-react';
+import { Button } from './ui/button';
 
 interface PreviewProps {
   html: string;
   css: string;
   javascript: string;
-  onConsoleLog: (log: Omit<ConsoleLog, 'id' | 'timestamp'>) => void;
+  onConsoleLog: (log: { type: 'log' | 'info' | 'warn' | 'error'; args: any[] }) => void;
 }
 
 export const Preview = ({ html, css, javascript, onConsoleLog }: PreviewProps) => {
-  const content = useMemo(() => {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Listen for console messages from iframe
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'console') {
+        onConsoleLog({
+          type: event.data.level,
+          args: event.data.args,
+        });
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [onConsoleLog]);
+
+  const srcDoc = useMemo(() => {
     const consoleScript = `
       <script>
         (function() {
@@ -23,13 +39,7 @@ export const Preview = ({ html, css, javascript, onConsoleLog }: PreviewProps) =
             window.parent.postMessage({
               type: 'console',
               level: 'log',
-              message: args.map(arg => {
-                try {
-                  return typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg);
-                } catch (e) {
-                  return String(arg);
-                }
-              }).join(' ')
+              args: args
             }, '*');
             originalLog.apply(console, args);
           };
@@ -38,7 +48,7 @@ export const Preview = ({ html, css, javascript, onConsoleLog }: PreviewProps) =
             window.parent.postMessage({
               type: 'console',
               level: 'error',
-              message: args.map(arg => String(arg)).join(' ')
+              args: args
             }, '*');
             originalError.apply(console, args);
           };
@@ -47,7 +57,7 @@ export const Preview = ({ html, css, javascript, onConsoleLog }: PreviewProps) =
             window.parent.postMessage({
               type: 'console',
               level: 'warn',
-              message: args.map(arg => String(arg)).join(' ')
+              args: args
             }, '*');
             originalWarn.apply(console, args);
           };
@@ -56,7 +66,7 @@ export const Preview = ({ html, css, javascript, onConsoleLog }: PreviewProps) =
             window.parent.postMessage({
               type: 'console',
               level: 'info',
-              message: args.map(arg => String(arg)).join(' ')
+              args: args
             }, '*');
             originalInfo.apply(console, args);
           };
@@ -65,15 +75,7 @@ export const Preview = ({ html, css, javascript, onConsoleLog }: PreviewProps) =
             window.parent.postMessage({
               type: 'console',
               level: 'error',
-              message: e.message + ' (at ' + e.filename + ':' + e.lineno + ':' + e.colno + ')'
-            }, '*');
-          });
-
-          window.addEventListener('unhandledrejection', function(e) {
-            window.parent.postMessage({
-              type: 'console',
-              level: 'error',
-              message: 'Unhandled Promise Rejection: ' + e.reason
+              args: [e.message + ' at ' + e.filename + ':' + e.lineno]
             }, '*');
           });
         })();
@@ -82,7 +84,7 @@ export const Preview = ({ html, css, javascript, onConsoleLog }: PreviewProps) =
 
     return `
       <!DOCTYPE html>
-      <html lang="en">
+      <html>
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -91,44 +93,51 @@ export const Preview = ({ html, css, javascript, onConsoleLog }: PreviewProps) =
         </head>
         <body>
           ${html}
-          <script>
-            try {
-              ${javascript}
-            } catch (error) {
-              console.error(error && error.message ? error.message : String(error));
-            }
-          </script>
+          <script>${javascript}</script>
         </body>
       </html>
     `;
   }, [html, css, javascript]);
 
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data.type === 'console') {
-        onConsoleLog({
-          type: event.data.level,
-          message: event.data.message,
-        });
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [onConsoleLog]);
-
   return (
-    <div className="h-full flex flex-col bg-card border-l border-border">
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-secondary/50">
-        <Eye className="w-4 h-4 text-primary" />
-        <span className="text-sm font-medium text-foreground">Live Preview</span>
+    <>
+      <div className="h-full w-full bg-preview-bg relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-2 right-2 z-10 bg-background/80 hover:bg-background"
+          onClick={() => setIsFullscreen(!isFullscreen)}
+        >
+          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        </Button>
+        <iframe
+          srcDoc={srcDoc}
+          title="Preview"
+          sandbox="allow-scripts allow-same-origin"
+          className="w-full h-full border-0"
+        />
       </div>
-      <iframe
-        title="preview"
-        className="flex-1 w-full bg-preview-bg"
-        sandbox="allow-scripts"
-        srcDoc={content}
-      />
-    </div>
+      
+      {isFullscreen && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-8">
+          <div className="relative w-full h-full max-w-[95vw] max-h-[95vh] border-4 border-primary/20 rounded-lg overflow-hidden shadow-2xl">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 right-4 z-10 bg-background/90 hover:bg-background"
+              onClick={() => setIsFullscreen(false)}
+            >
+              <Minimize2 className="h-5 w-5" />
+            </Button>
+            <iframe
+              srcDoc={srcDoc}
+              title="Fullscreen Preview"
+              sandbox="allow-scripts allow-same-origin"
+              className="w-full h-full border-0 bg-white"
+            />
+          </div>
+        </div>
+      )}
+    </>
   );
 };

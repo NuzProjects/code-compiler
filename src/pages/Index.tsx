@@ -1,11 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { Code2, Download, FileCode, Upload } from 'lucide-react';
+import { Code2, Download, FileCode, Upload, Key } from 'lucide-react';
 import { CodeEditor } from '@/components/CodeEditor';
 import { Console, ConsoleLog } from '@/components/Console';
 import { Preview } from '@/components/Preview';
 import { FileTree, FileItem } from '@/components/FileTree';
+import { SecretsManager } from '@/components/SecretsManager';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { toast } from 'sonner';
 
@@ -141,7 +143,7 @@ const Index = () => {
 
   const handleFileAdd = useCallback(
     (type: FileItem['type']) => {
-      const extensions = { html: '.html', css: '.css', javascript: '.js' };
+      const extensions = { html: '.html', css: '.css', javascript: '.js', python: '.py' };
       const newFile: FileItem = {
         id: `${type}-${Date.now()}`,
         name: `new-file${extensions[type]}`,
@@ -186,11 +188,14 @@ const Index = () => {
     [files, activeFileId, setFiles, setActiveFileId]
   );
 
-  const handleConsoleLog = useCallback((log: Omit<ConsoleLog, 'id' | 'timestamp'>) => {
+  const handleConsoleLog = useCallback((log: { type: 'log' | 'info' | 'warn' | 'error'; args: any[] }) => {
     setConsoleLogs((prev) => [
       ...prev,
       {
-        ...log,
+        type: log.type,
+        message: log.args.map(arg => 
+          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+        ).join(' '),
         id: Math.random().toString(36).substr(2, 9),
         timestamp: new Date(),
       },
@@ -313,9 +318,23 @@ ${jsFiles.map((f) => `// ${f.name}\n${f.content}`).join('\n\n')}
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Key className="w-4 h-4" />
+                Secrets
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Secrets Manager</DialogTitle>
+              </DialogHeader>
+              <SecretsManager />
+            </DialogContent>
+          </Dialog>
           <input
             type="file"
-            accept=".html,.css,.js"
+            accept=".html,.css,.js,.py"
             onChange={handleFileImport}
             className="hidden"
             id="file-import"

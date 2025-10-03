@@ -3,10 +3,11 @@ import CodeMirror from '@uiw/react-codemirror';
 import { html } from '@codemirror/lang-html';
 import { css } from '@codemirror/lang-css';
 import { javascript } from '@codemirror/lang-javascript';
+import { python } from '@codemirror/lang-python';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 
 interface CodeEditorProps {
-  language: 'html' | 'css' | 'javascript';
+  language: 'html' | 'css' | 'javascript' | 'python';
   value: string;
   onChange: (value: string) => void;
 }
@@ -19,6 +20,7 @@ export const CodeEditor = ({ language, value, onChange }: CodeEditorProps) => {
       html: [html()],
       css: [css()],
       javascript: [javascript()],
+      python: [python()],
     };
     setExtensions(langExtensions[language]);
   }, [language]);

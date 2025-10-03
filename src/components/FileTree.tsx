@@ -16,7 +16,7 @@ import {
 export interface FileItem {
   id: string;
   name: string;
-  type: 'html' | 'css' | 'javascript';
+  type: 'html' | 'css' | 'javascript' | 'python';
   content: string;
 }
 
@@ -46,6 +46,7 @@ export const FileTree = ({
       html: 'text-orange-500',
       css: 'text-blue-500',
       javascript: 'text-yellow-500',
+      python: 'text-green-500',
     };
     return <FileCode className={`w-4 h-4 ${colors[type]}`} />;
   };
@@ -57,7 +58,19 @@ export const FileTree = ({
 
   const confirmRename = (fileId: string) => {
     if (editingName.trim()) {
-      onFileRename(fileId, editingName.trim());
+      const file = files.find((f) => f.id === fileId);
+      if (file) {
+        const extensions = { html: '.html', css: '.css', javascript: '.js', python: '.py' };
+        const requiredExt = extensions[file.type];
+        let newName = editingName.trim();
+        
+        // Ensure the file keeps its extension
+        if (!newName.endsWith(requiredExt)) {
+          newName = newName.replace(/\.(html|css|js|py)$/i, '') + requiredExt;
+        }
+        
+        onFileRename(fileId, newName);
+      }
     }
     setEditingId(null);
   };
@@ -78,11 +91,11 @@ export const FileTree = ({
       </div>
 
       <div className="flex-1 overflow-auto p-2 space-y-4">
-        {(['html', 'css', 'javascript'] as const).map((type) => (
+        {(['html', 'css', 'javascript', 'python'] as const).map((type) => (
           <div key={type} className="space-y-1">
             <div className="flex items-center justify-between px-2 py-1">
               <span className="text-xs font-medium text-muted-foreground uppercase">
-                {type === 'javascript' ? 'JS' : type}
+                {type === 'javascript' ? 'JS' : type === 'python' ? 'PY' : type}
               </span>
               <Button
                 variant="ghost"
